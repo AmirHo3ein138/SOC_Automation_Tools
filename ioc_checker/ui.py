@@ -34,15 +34,14 @@ from utils import FileHashes, ProviderResult, Verdict
 console = Console()
 
 # ---------------------------------------------------------------------------
-# Banner (ThreatLens Stealth Theme)
+# Banner (ThreatLens Theme)
 # ---------------------------------------------------------------------------
 
-_BANNER_FONT = "slant"
+_BANNER_FONT = "ansi_shadow"
 _BANNER_TEXT = "THREATLENS"
 
-# Stealth / Enterprise Theme Gradient (Steel Blue to Dodger Blue)
-_GRADIENT_START = (70, 130, 180)    # steel_blue
-_GRADIENT_END = (30, 144, 255)      # dodger_blue
+_GRADIENT_START = (0, 255, 255)    # Cyan
+_GRADIENT_END = (138, 43, 226)     # BlueViolet
 
 
 def _lerp(a: int, b: int, t: float) -> int:
@@ -267,7 +266,7 @@ def print_enrichment_info(data: dict, title: str, is_cloud: bool, error: str | N
             Group(*panel_content),
             title=f"[bold grey84]{title}[/bold grey84]",
             title_align="left",
-            border_style="deep_purple4",
+            border_style="magenta",
             padding=(1, 2),
             box=box.ROUNDED
         )
