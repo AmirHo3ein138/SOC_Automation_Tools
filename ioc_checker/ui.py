@@ -1,15 +1,15 @@
 """
 ui.py
 
-Terminal Presentation Layer
----------------------------
+Terminal Presentation Layer (ThreatLens)
+----------------------------------------
 Author: Amirhossein Mousavi
 
 Description:
 Handles all visual output and terminal rendering using the 'Rich' library. It abstracts 
 the complexity of drawing tables, dynamic progress spinners, gradient banners, and 
 color-coded risk assessments. This module ensures the analyst receives data in a clean, 
-highly readable, and visually prioritized format.
+highly readable, and visually prioritized format using the 'Stealth' color scheme.
 """
 
 from __future__ import annotations
@@ -24,6 +24,8 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 from rich.text import Text
+from rich.console import Group
+from rich import box  # Added for better table styling
 
 from config import VERSION
 from detector import IOCType
@@ -32,15 +34,15 @@ from utils import FileHashes, ProviderResult, Verdict
 console = Console()
 
 # ---------------------------------------------------------------------------
-# Banner
+# Banner (ThreatLens Stealth Theme)
 # ---------------------------------------------------------------------------
 
-_BANNER_FONT = "ansi_shadow"
-_BANNER_TEXT = "IOC CHECKER"
+_BANNER_FONT = "slant"
+_BANNER_TEXT = "THREATLENS"
 
-# Endpoints of the red -> blue cyberpunk gradient (RGB)
-_GRADIENT_START = (255, 30, 60)     # crimson red
-_GRADIENT_END = (40, 90, 255)       # electric blue
+# Stealth / Enterprise Theme Gradient (Steel Blue to Dodger Blue)
+_GRADIENT_START = (70, 130, 180)    # steel_blue
+_GRADIENT_END = (30, 144, 255)      # dodger_blue
 
 
 def _lerp(a: int, b: int, t: float) -> int:
@@ -55,7 +57,7 @@ def _gradient_color(t: float) -> str:
 
 
 def _render_gradient_banner(figlet_text: str) -> Text:
-    """Apply a left-to-right red -> blue gradient across the figlet art."""
+    """Apply a left-to-right Stealth gradient across the figlet art."""
     lines = figlet_text.rstrip("\n").split("\n")
     width = max((len(line) for line in lines), default=1) or 1
 
@@ -86,21 +88,22 @@ def print_banner() -> None:
     banner_text.overflow = "crop"
 
     subtitle = Text()
-    subtitle.append("THREAT INTELLIGENCE AGGREGATOR CLI\n", style="bold bright_white")
+    subtitle.append("THREAT INTELLIGENCE AGGREGATOR CLI\n", style="bold grey84")
     subtitle.append("Multi-Provider IOC Reputation Checker\n", style="italic bright_black")
     subtitle.append(f"Version {VERSION}\n\n", style="dim")
 
     # Provider Information
-    subtitle.append("Provided by Amirhossein Mousavi\n", style="bold green")
-    subtitle.append("LinkedIn: https://linkedin.com/in/amirhossein-mousavi-877685359/\n", style="blue")
-    subtitle.append("GitHub: https://github.com/AmirHo3ein138", style="cyan")
+    subtitle.append("Provided by Amirhossein Mousavi\n", style="bold spring_green3")
+    subtitle.append("LinkedIn: https://linkedin.com/in/amirhossein-mousavi-877685359/\n", style="steel_blue1")
+    subtitle.append("GitHub: https://github.com/AmirHo3ein138", style="dodger_blue2")
     # -----------------------------------------------------------------
 
     console.print(
         Panel(
             Align.center(banner_text),
-            border_style="blue",
+            border_style="deep_sky_blue4",
             padding=(1, 2),
+            box=box.ROUNDED
         )
     )
     console.print(Align.center(subtitle))
@@ -108,11 +111,11 @@ def print_banner() -> None:
 
 
 VERDICT_STYLES = {
-    Verdict.MALICIOUS: "bold red",
-    Verdict.SUSPICIOUS: "bold yellow",
-    Verdict.CLEAN: "bold green",
-    Verdict.FOUND: "bold red",
-    Verdict.NOT_FOUND: "bold green",
+    Verdict.MALICIOUS: "bold red3",
+    Verdict.SUSPICIOUS: "bold dark_orange",
+    Verdict.CLEAN: "bold spring_green3",
+    Verdict.FOUND: "bold red3",
+    Verdict.NOT_FOUND: "bold spring_green3",
     Verdict.ERROR: "bold magenta",
     Verdict.UNSUPPORTED: "dim",
 }
@@ -126,8 +129,8 @@ def print_ioc_info(ioc: str, ioc_type: IOCType) -> None:
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     table = Table.grid(padding=(0, 2))
-    table.add_column(justify="left", style="bold cyan", min_width=16)
-    table.add_column(justify="left", style="bold white")
+    table.add_column(justify="left", style="bold steel_blue1", min_width=16)
+    table.add_column(justify="left", style="bold grey84")
 
     table.add_row("IOC", ioc)
     table.add_row("IOC Type", ioc_type.value)
@@ -137,10 +140,11 @@ def print_ioc_info(ioc: str, ioc_type: IOCType) -> None:
     console.print(
         Panel(
             table,
-            title="[bold white]IOC INFORMATION[/bold white]",
+            title="[bold grey84]IOC INFORMATION[/bold grey84]",
             title_align="left",
-            border_style="blue",
+            border_style="dodger_blue2",
             padding=(1, 2),
+            box=box.ROUNDED
         )
     )
     console.print()
@@ -149,9 +153,6 @@ def print_ioc_info(ioc: str, ioc_type: IOCType) -> None:
 def _human_readable_size(num_bytes: int) -> str:
     """
     Format a byte count as a human-readable string (e.g. '2.14 MB').
-
-    Uses binary (1024-based) units and falls back to the largest available
-    unit for very large files.
     """
     size = float(num_bytes)
     for unit in ("B", "KB", "MB", "GB", "TB", "PB"):
@@ -160,7 +161,6 @@ def _human_readable_size(num_bytes: int) -> str:
                 return f"{int(size)} {unit}"
             return f"{size:.2f} {unit}"
         size /= 1024.0
-    # Unreachable, but keeps type checkers satisfied.
     return f"{num_bytes} B"
 
 
@@ -168,13 +168,10 @@ def print_file_info(path: str, hashes: FileHashes) -> None:
     """
     Render the FILE INFORMATION panel shown before any provider output
     when the user scans a local file with -f/--file.
-
-    Displays the filename, full path, human-readable size, and the three
-    calculated digests (MD5, SHA1, SHA256).
     """
     table = Table.grid(padding=(0, 2))
-    table.add_column(justify="left", style="bold cyan", min_width=10)
-    table.add_column(justify="left", style="bold white", overflow="fold")
+    table.add_column(justify="left", style="bold steel_blue1", min_width=10)
+    table.add_column(justify="left", style="bold grey84", overflow="fold")
 
     table.add_row("Filename", hashes["filename"])
     table.add_row("Path", path)
@@ -186,10 +183,11 @@ def print_file_info(path: str, hashes: FileHashes) -> None:
     console.print(
         Panel(
             table,
-            title="[bold white]FILE INFORMATION[/bold white]",
+            title="[bold grey84]FILE INFORMATION[/bold grey84]",
             title_align="left",
-            border_style="blue",
+            border_style="dodger_blue2",
             padding=(1, 2),
+            box=box.ROUNDED
         )
     )
     console.print()
@@ -199,9 +197,10 @@ def print_file_error(path: str, message: str) -> None:
     """Render an error panel when a supplied file cannot be read/hashed."""
     console.print(
         Panel(
-            f"[bold red]Could not process file:[/bold red] {path}\n{message}",
+            f"[bold red3]Could not process file:[/bold red3] {path}\n{message}",
             title="File Error",
-            border_style="red",
+            border_style="red3",
+            box=box.ROUNDED
         )
     )
 
@@ -209,10 +208,11 @@ def print_file_error(path: str, message: str) -> None:
 def print_unsupported_ioc(ioc: str) -> None:
     console.print(
         Panel(
-            f"[bold red]Could not classify IOC:[/bold red] {ioc}\n"
+            f"[bold red3]Could not classify IOC:[/bold red3] {ioc}\n"
             "Supported types: IPv4, Domain, URL, MD5, SHA1, SHA256",
             title="Unsupported IOC",
-            border_style="red",
+            border_style="red3",
+            box=box.ROUNDED
         )
     )
 
@@ -223,24 +223,25 @@ def print_unsupported_ioc(ioc: str) -> None:
 def print_cdn_warning(cdn_name: str) -> None:
     console.print(
         Panel(
-            f"[bold white]This IP belongs to the infrastructure of [/bold white][bold yellow]{cdn_name}[/bold yellow].\n"
-            "[bold white]You are scanning a CDN/WAF. You must find the true origin IP for accurate assessment![/bold white]",
-            title="[blink bold red]⚠ CDN DETECTED ⚠[/blink bold red]",
-            border_style="red",
-            style="on bright_red"
+            f"[bold grey84]This IP belongs to the infrastructure of [/bold grey84][bold dark_orange]{cdn_name}[/bold dark_orange].\n"
+            "[bold grey84]You are scanning a CDN/WAF. You must find the true origin IP for accurate assessment![/bold grey84]",
+            title="[blink bold red3]⚠ CDN DETECTED ⚠[/blink bold red3]",
+            border_style="red3",
+            style="on bright_black",
+            box=box.ROUNDED
         )
     )
     console.print()
 
-from rich.console import Group # این را بالای فایل کنار بقیه ایمپورت‌های rich اضافه کن
 
 def print_enrichment_info(data: dict, title: str, is_cloud: bool, error: str | None) -> None:
     if error:
         console.print(
             Panel(
-                f"[bold red]Failed to retrieve context:[/bold red] {error}",
-                title=f"[bold white]{title}[/bold white]",
-                border_style="red"
+                f"[bold red3]Failed to retrieve context:[/bold red3] {error}",
+                title=f"[bold grey84]{title}[/bold grey84]",
+                border_style="red3",
+                box=box.ROUNDED
             )
         )
         console.print()
@@ -250,8 +251,8 @@ def print_enrichment_info(data: dict, title: str, is_cloud: bool, error: str | N
         return
 
     table = Table.grid(padding=(0, 2))
-    table.add_column(justify="left", style="bold cyan", min_width=16)
-    table.add_column(justify="left", style="bold white")
+    table.add_column(justify="left", style="bold steel_blue1", min_width=16)
+    table.add_column(justify="left", style="bold grey84")
 
     for key, value in data.items():
         table.add_row(key, str(value))
@@ -259,15 +260,16 @@ def print_enrichment_info(data: dict, title: str, is_cloud: bool, error: str | N
     panel_content = [table]
     if is_cloud:
         panel_content.append(Text(""))
-        panel_content.append(Text("Atention!! This IP blongs to Cloud Provider", style="bold yellow blink"))
+        panel_content.append(Text("Attention!! This IP/Domain belongs to a Cloud Provider", style="bold dark_orange blink"))
 
     console.print(
         Panel(
             Group(*panel_content),
-            title=f"[bold white]{title}[/bold white]",
+            title=f"[bold grey84]{title}[/bold grey84]",
             title_align="left",
-            border_style="magenta",
+            border_style="deep_purple4",
             padding=(1, 2),
+            box=box.ROUNDED
         )
     )
     console.print()
@@ -280,14 +282,11 @@ def print_enrichment_info(data: dict, title: str, is_cloud: bool, error: str | N
 def create_scan_progress(total: int) -> Progress:
     """
     Build a transient Rich Progress instance for the scanning phase.
-    'transient=True' means the progress display is cleared from the
-    terminal as soon as the `with` block exits, leaving only the final
-    report behind.
     """
     return Progress(
-        SpinnerColumn(style="bold cyan"),
-        TextColumn("[bold cyan]Scanning IOC...[/bold cyan]"),
-        TextColumn("[white]{task.fields[detail]}[/white]"),
+        SpinnerColumn(spinner_name="bouncingBar", style="bold dodger_blue2"),
+        TextColumn("[bold dodger_blue2]Scanning IOC...[/bold dodger_blue2]"),
+        TextColumn("[grey84]{task.fields[detail]}[/grey84]"),
         console=console,
         transient=True,
     )
@@ -304,29 +303,25 @@ _GENERIC_CONFIDENCE_RE = re.compile(r"Confidence:\s*([\d.]+)%")
 _GENERIC_CONFIDENCE_NA_RE = re.compile(r"Confidence:\s*N/A", re.IGNORECASE)
 
 _OTX_CONFIDENCE_STYLES = {
-    "NONE": "dim white",
+    "NONE": "dim grey84",
     "LOW": "yellow",
-    "MEDIUM": "bright_yellow",
-    "HIGH": "bright_red",
+    "MEDIUM": "dark_orange",
+    "HIGH": "red3",
 }
 
-# Pulsedive returns a categorical risk level rather than a numeric score, so
-# its Confidence column shows a qualitative label (matching the OTX approach)
-# instead of a fabricated percentage.
 _PULSEDIVE_RISK_RE = re.compile(r"Risk:\s*(\w+)", re.IGNORECASE)
 _PULSEDIVE_CONFIDENCE_STYLES = {
-    "CRITICAL": "bright_red",
-    "HIGH": "bright_red",
-    "MEDIUM": "bright_yellow",
+    "CRITICAL": "red3",
+    "HIGH": "red3",
+    "MEDIUM": "dark_orange",
     "LOW": "yellow",
-    "NONE": "dim white",
-    "RETIRED": "dim white",
-    "UNKNOWN": "dim white",
+    "NONE": "dim grey84",
+    "RETIRED": "dim grey84",
+    "UNKNOWN": "dim grey84",
 }
 
 
 def _otx_pulse_count(details: str) -> int:
-    """Extract the pulse count from OTX details text (0 if none found)."""
     match = _OTX_PULSE_RE.search(details)
     if match:
         return int(match.group(1))
@@ -334,7 +329,6 @@ def _otx_pulse_count(details: str) -> int:
 
 
 def _otx_confidence_label(pulse_count: int) -> str:
-    """Map an OTX pulse count to a qualitative confidence label."""
     if pulse_count == 0:
         return "NONE"
     if pulse_count <= 2:
@@ -345,7 +339,6 @@ def _otx_confidence_label(pulse_count: int) -> str:
 
 
 def _pulsedive_confidence_label(details: str) -> str:
-    """Extract Pulsedive's risk level from its details as an upper-case label."""
     match = _PULSEDIVE_RISK_RE.search(details)
     if match:
         return match.group(1).upper()
@@ -353,50 +346,41 @@ def _pulsedive_confidence_label(details: str) -> str:
 
 
 def _extract_confidence(result: ProviderResult) -> Text:
-    """Derive a Confidence column value from a provider's details text."""
     if result.verdict in (Verdict.ERROR, Verdict.UNSUPPORTED, Verdict.NOT_FOUND):
-        return Text("--", style="bold cyan", justify="center")
+        return Text("--", style="bold steel_blue1", justify="center")
 
     if result.provider == "VirusTotal":
         match = _VT_PCT_RE.search(result.details)
         value = f"{match.group(1)}%" if match else "--"
-        return Text(value, style="bold cyan", justify="center")
+        return Text(value, style="bold steel_blue1", justify="center")
 
     if result.provider == "ThreatFox":
         match = _TF_CONFIDENCE_RE.search(result.details)
         value = f"{match.group(1)}%" if match else "--"
-        return Text(value, style="bold cyan", justify="center")
+        return Text(value, style="bold steel_blue1", justify="center")
 
     if result.provider == "AlienVault OTX":
-        # OTX has no native confidence percentage; map pulse count to a
-        # qualitative label instead of inventing a numeric value.
         pulse_count = _otx_pulse_count(result.details)
         label = _otx_confidence_label(pulse_count)
-        style = _OTX_CONFIDENCE_STYLES.get(label, "white")
+        style = _OTX_CONFIDENCE_STYLES.get(label, "grey84")
         return Text(label, style=f"bold {style}", justify="center")
 
     if result.provider == "Pulsedive":
-        # Pulsedive reports a categorical risk level, not a percentage, so
-        # surface that level as the confidence label (coloured by severity).
         label = _pulsedive_confidence_label(result.details)
-        style = _PULSEDIVE_CONFIDENCE_STYLES.get(label, "white")
+        style = _PULSEDIVE_CONFIDENCE_STYLES.get(label, "grey84")
         return Text(label, style=f"bold {style}", justify="center")
 
-    # Generic path: AbuseIPDB, URLhaus, MalwareBazaar, and
-    # any future provider that includes an explicit "Confidence: X%" (or
-    # "Confidence: N/A") line in its details text.
     if _GENERIC_CONFIDENCE_NA_RE.search(result.details):
-        return Text("N/A", style="bold cyan", justify="center")
+        return Text("N/A", style="bold steel_blue1", justify="center")
 
     match = _GENERIC_CONFIDENCE_RE.search(result.details)
     if match:
-        return Text(f"{match.group(1)}%", style="bold cyan", justify="center")
+        return Text(f"{match.group(1)}%", style="bold steel_blue1", justify="center")
 
-    return Text("--", style="bold cyan", justify="center")
+    return Text("--", style="bold steel_blue1", justify="center")
 
 
 def _clean_details(result: ProviderResult) -> str:
-    """Strip redundant percentage info from details now shown in Confidence."""
     if result.provider == "VirusTotal":
         return _VT_PCT_RE.sub("", result.details).replace("()", "").strip()
     return result.details
@@ -404,21 +388,22 @@ def _clean_details(result: ProviderResult) -> str:
 
 def print_results_table(results: list[ProviderResult]) -> None:
     table = Table(
-        title="[bold cyan]SCAN RESULTS[/bold cyan]",
+        title="[bold dodger_blue2]SCAN RESULTS[/bold dodger_blue2]",
         title_justify="left",
-        header_style="bold cyan",
-        border_style="blue",
+        header_style="bold steel_blue1",
+        border_style="deep_sky_blue4",
         show_lines=True,
         pad_edge=True,
         padding=(0, 1),
+        box=box.ROUNDED
     )
-    table.add_column("PROVIDER", style="bold white", no_wrap=True)
+    table.add_column("PROVIDER", style="bold grey84", no_wrap=True)
     table.add_column("VERDICT", justify="center", no_wrap=True)
     table.add_column("CONFIDENCE", justify="center", no_wrap=True)
     table.add_column("DETAILS", overflow="fold")
 
     for result in results:
-        style = VERDICT_STYLES.get(result.verdict, "white")
+        style = VERDICT_STYLES.get(result.verdict, "grey84")
         table.add_row(
             result.provider,
             Text(result.verdict.value, style=style, justify="center"),
@@ -435,9 +420,9 @@ def print_results_table(results: list[ProviderResult]) -> None:
 # ---------------------------------------------------------------------------
 
 _ASSESSMENT_STYLES = {
-    "CLEAN": "bold green",
-    "SUSPICIOUS": "bold yellow",
-    "HIGH RISK": "bold red",
+    "CLEAN": "bold spring_green3",
+    "SUSPICIOUS": "bold dark_orange",
+    "HIGH RISK": "bold red3",
 }
 
 
@@ -457,26 +442,26 @@ def print_summary(
     recommendation: list[str],
     ioc_type: IOCType | None = None,
 ) -> None:
-    verdict_style = _ASSESSMENT_STYLES.get(overall_verdict, "white")
+    verdict_style = _ASSESSMENT_STYLES.get(overall_verdict, "grey84")
 
     info = Table.grid(padding=(0, 2))
-    info.add_column(justify="left", style="bold cyan", min_width=18)
+    info.add_column(justify="left", style="bold steel_blue1", min_width=18)
     info.add_column(justify="left")
 
-    info.add_row("Overall Risk Score", f"[bold white]{risk_score}/100[/bold white]")
-    info.add_row("Sources Queried", f"[bold white]{total_sources}[/bold white]")
-    info.add_row("Sources Matched", f"[bold white]{sources_hit}/{total_sources}[/bold white]")
+    info.add_row("Overall Risk Score", f"[bold grey84]{risk_score}/100[/bold grey84]")
+    info.add_row("Sources Queried", f"[bold grey84]{total_sources}[/bold grey84]")
+    info.add_row("Sources Matched", f"[bold grey84]{sources_hit}/{total_sources}[/bold grey84]")
     if ioc_type is not None:
-        info.add_row("IOC Type", f"[bold white]{ioc_type.value}[/bold white]")
+        info.add_row("IOC Type", f"[bold grey84]{ioc_type.value}[/bold grey84]")
 
-    rec_lines = "\n".join(f"[white]•[/white] {item}" for item in recommendation)
+    rec_lines = "\n".join(f"[grey84]•[/grey84] {item}" for item in recommendation)
 
     body_parts = [
         Align.center(_big_verdict(overall_verdict, verdict_style)),
         Text(""),
         info,
         Text(""),
-        Text("Recommendation", style="bold cyan"),
+        Text("Recommendation", style="bold dodger_blue2"),
         Text.from_markup(rec_lines),
     ]
 
@@ -488,43 +473,38 @@ def print_summary(
     console.print(
         Panel(
             grid,
-            title="[bold white]OVERALL ASSESSMENT[/bold white]",
+            title="[bold grey84]OVERALL ASSESSMENT[/bold grey84]",
             title_align="left",
             border_style=verdict_style,
             padding=(1, 2),
+            box=box.ROUNDED
         )
     )
 
 
 # ---------------------------------------------------------------------------
-# Warnings (replaces the old API Status panel - only shown when needed)
+# Warnings
 # ---------------------------------------------------------------------------
 
 def print_warnings(results: list[ProviderResult]) -> None:
-    """
-    Print a compact warnings section listing only the providers that
-    errored out during this scan. If every provider succeeded, this
-    prints nothing at all.
-    """
     failed = [r for r in results if r.verdict == Verdict.ERROR]
     if not failed:
         return
 
     lines = []
     for result in failed:
-        # Details may be multi-line (e.g. "HTTP 401\nInvalid API Key");
-        # collapse to a single readable bullet line.
         first_line = result.details.splitlines()[0] if result.details else "Unknown error"
-        lines.append(f"[bold yellow]•[/bold yellow] [bold white]{result.provider}[/bold white] : {first_line}")
+        lines.append(f"[bold dark_orange]•[/bold dark_orange] [bold grey84]{result.provider}[/bold grey84] : {first_line}")
 
     body = "\n".join(lines)
     console.print(
         Panel(
             body,
-            title="[bold yellow]⚠ API WARNINGS[/bold yellow]",
+            title="[bold dark_orange]⚠ API WARNINGS[/bold dark_orange]",
             title_align="left",
-            border_style="yellow",
+            border_style="dark_orange",
             padding=(1, 2),
+            box=box.ROUNDED
         )
     )
     console.print()
@@ -540,5 +520,5 @@ def print_footer(elapsed_seconds: float, provider_names: list[str]) -> None:
     footer.append(f"Execution Time: {elapsed_seconds:.2f}s", style="bright_black")
     footer.append("\n")
     footer.append("Powered by: ", style="bright_black")
-    footer.append(" | ".join(provider_names), style="bold cyan")
+    footer.append(" | ".join(provider_names), style="bold steel_blue1")
     console.print(Align.center(footer))
