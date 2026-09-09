@@ -25,8 +25,7 @@ class BaseProvider(ABC):
 
     name: str = "BaseProvider"
 
-    # The set of IOC types this provider knows how to look up. Subclasses
-    # must override this. Used by providers.manager for dynamic selection.
+    
     SUPPORTED_TYPES: set[IOCType] = set()
 
     @abstractmethod
