@@ -1,12 +1,12 @@
 """
-ioc_checker.py
+ThreatLens.py
 
 Threat Intelligence Aggregator - Interactive CLI
 -----------------------------------------------
 Author: Amirhossein Mousavi
 
 Description:
-The main entry point for the IOC Checker tool, designed to streamline alert triage 
+The main entry point for the ThreatLens tool, designed to streamline alert triage 
 and threat hunting operations. This module runs a continuous interactive loop (REPL) 
 that accepts IP addresses, domains, URLs, hashes, or local files. It orchestrates 
 the flow of data between the enrichment module, threat intelligence providers, and 
@@ -106,7 +106,6 @@ def resolve_file_to_sha256(path: str) -> str | None:
 
 
 def main() -> int:
-    # 1. Clear screen at startup
     if os.name == 'nt':
         os.system('cls')
     else:
@@ -134,7 +133,7 @@ def main() -> int:
 
             start_time = time.perf_counter()
             
-            # 2. Clear screen before displaying new scan results
+            
             if os.name == 'nt':
                 os.system('cls')
             else:
@@ -157,7 +156,7 @@ def main() -> int:
 
             ui.print_ioc_info(ioc, ioc_type)
 
-            # ENRICHMENT PHASE
+            
             used_sources = []
             if ioc_type == IOCType.IPV4:
                 cdn_name = enrichment.check_cdn(ioc)
@@ -173,7 +172,7 @@ def main() -> int:
                 ui.print_enrichment_info(data, "DOMAIN WHOIS", is_cloud, err)
                 used_sources.append("who.is")
 
-            # SCANNING PHASE
+          
             providers = get_providers_for_type(ioc_type, config)
             method_name = _LOOKUP_METHOD[ioc_type]
             used_sources.extend([p.name for p in providers])
