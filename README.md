@@ -35,6 +35,3 @@ To use any tool, go into its dedicated folder and follow the installation/usage 
 
 Since this repository is open source, pull requests, bug reports, and suggestions for improving existing tools or adding new ones are all welcome. Please open an issue to discuss the direction of any major change before submitting a large PR.
 
-## License
-
-This project is released under an open source license. See the `LICENSE` file in this repository for details.
