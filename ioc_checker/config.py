@@ -23,7 +23,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 VERSION: str = "2.0.1"
-REQUEST_TIMEOUT: int = 15  # seconds, used by all provider HTTP calls
+REQUEST_TIMEOUT: int = 15 
 
 
 @dataclass(frozen=True)
@@ -49,7 +49,7 @@ class AppConfig:
     urlhaus: ProviderConfig
     malwarebazaar: ProviderConfig
     pulsedive: ProviderConfig
-    whois_api_key: str | None  # <-- NEW FIELD FOR ENRICHMENT
+    whois_api_key: str | None  
 
     def all_providers(self) -> list[ProviderConfig]:
         return [
@@ -72,5 +72,5 @@ def load_config() -> AppConfig:
         urlhaus=ProviderConfig("URLhaus", "URLHAUS_API_KEY", os.getenv("URLHAUS_API_KEY") or None, False),
         malwarebazaar=ProviderConfig("MalwareBazaar", "MALWAREBAZAAR_API_KEY", os.getenv("MALWAREBAZAAR_API_KEY") or None, False),
         pulsedive=ProviderConfig("Pulsedive", "PULSEDIVE_API_KEY", os.getenv("PULSEDIVE_API_KEY") or None),
-        whois_api_key=os.getenv("WHOIS_API_KEY") or None, # <-- LOAD NEW KEY
+        whois_api_key=os.getenv("WHOIS_API_KEY") or None,
     )
