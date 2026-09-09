@@ -22,7 +22,7 @@ from dotenv import load_dotenv
 # Load environment variables from .env file in the current working directory
 load_dotenv()
 
-VERSION: str = "1.0.0"
+VERSION: str = "2.0.1"
 REQUEST_TIMEOUT: int = 15  # seconds, used by all provider HTTP calls
 
 
