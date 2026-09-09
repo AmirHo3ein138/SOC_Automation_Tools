@@ -3,7 +3,7 @@
 # Author: Amirhossein Mousavi
 # 
 # Description:
-# Lists the external Python packages required to run the IOC Checker tool.
+# Lists the external Python packages required to run the ThreatLens.
 # Install these dependencies using: pip install -r requirements.txt
 # ==============================================================================
 
@@ -12,4 +12,3 @@ rich>=13.7.0
 python-dotenv>=1.0.0
 pyfiglet>=1.0.2
 tldextract>=5.1.1
-pyinstaller>=6.3.0
