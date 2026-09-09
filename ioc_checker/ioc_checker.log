@@ -1,1 +1,0 @@
-2026-09-07 21:44:59,417 - ioc_checker - ERROR - Failed to fetch CDN lists: HTTPSConnectionPool(host='www.arvancloud.ir', port=443): Read timed out. (read timeout=10)
