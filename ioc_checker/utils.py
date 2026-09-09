@@ -41,10 +41,10 @@ class Verdict(str, Enum):
     MALICIOUS = "MALICIOUS"
     SUSPICIOUS = "SUSPICIOUS"
     CLEAN = "CLEAN"
-    FOUND = "FOUND"          # e.g. ThreatFox has a match but no clean/malicious axis
+    FOUND = "FOUND"       
     NOT_FOUND = "NOT FOUND"
     ERROR = "ERROR"
-    UNSUPPORTED = "UNSUPPORTED"  # provider does not support this IOC type
+    UNSUPPORTED = "UNSUPPORTED"  
 
 
 @dataclass
@@ -58,7 +58,7 @@ class ProviderResult:
     provider: str
     verdict: Verdict
     details: str
-    risk_contribution: int = 0  # points this provider contributes to overall score
+    risk_contribution: int = 0
     raw: dict = field(default_factory=dict)
 
 
