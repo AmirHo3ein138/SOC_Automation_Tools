@@ -113,7 +113,7 @@ def enrich_domain(domain: str, api_key: str | None) -> tuple[dict, bool, str | N
     if not api_key:
         return {}, False, "WHOIS_API_KEY not configured in .env"
         
-    # Extract root domain intelligently (e.g., rnwm.fpewppc.cn -> fpewppc.cn)
+  
     ext = tldextract.extract(domain)
     root_domain = f"{ext.domain}.{ext.suffix}"
     if not root_domain or not ext.suffix:
@@ -130,20 +130,20 @@ def enrich_domain(domain: str, api_key: str | None) -> tuple[dict, bool, str | N
         resp.raise_for_status()
         data = resp.json()
         
-        # Extract payload
+        
         payload = data.get("payload", data)
         
-        # 1. Extract Registrar
+        
         registrar = payload.get("registrar", "Unknown")
         if isinstance(registrar, dict):
             registrar = registrar.get("name", "Unknown")
             
-        # 2. Extract Dates (Standard fields)
+        
         created = payload.get("created") or payload.get("registered") or "Unknown"
         updated = payload.get("updated", "Unknown")
         expires = payload.get("expires") or payload.get("expiration") or "Unknown"
         
-        # Fallback: Extract dates from 'events' array (used by ccTLDs like .cn)
+       
         events = payload.get("events", [])
         if isinstance(events, list):
             for event in events:
@@ -157,14 +157,14 @@ def enrich_domain(domain: str, api_key: str | None) -> tuple[dict, bool, str | N
                 elif action in ["last changed", "updated"] and updated == "Unknown":
                     updated = date_val
                     
-        # 3. Extract Email
+        
         email = "Unknown"
         contacts = payload.get("contacts", {})
         if isinstance(contacts, dict):
-            # Check registrant first (common in ccTLDs)
+            
             if "registrant" in contacts and isinstance(contacts["registrant"], dict):
                 email = contacts["registrant"].get("email", "Unknown")
-            # Fallback to admin
+            
             elif email == "Unknown" and "admin" in contacts and isinstance(contacts["admin"], dict):
                 email = contacts["admin"].get("email", "Unknown")
         elif isinstance(contacts, list) and len(contacts) > 0:
@@ -179,7 +179,7 @@ def enrich_domain(domain: str, api_key: str | None) -> tuple[dict, bool, str | N
             "Contact Email": email
         }
         
-        # Check for the presence of the word 'cloud' in registrar or email
+        
         return result, _is_cloud([registrar, email]), None
 
     except requests.exceptions.HTTPError as exc:
