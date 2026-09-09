@@ -40,8 +40,8 @@ console = Console()
 _BANNER_FONT = "ansi_shadow"
 _BANNER_TEXT = "THREATLENS"
 
-_GRADIENT_START = (0, 255, 255)    # Cyan
-_GRADIENT_END = (138, 43, 226)     # BlueViolet
+_GRADIENT_START = (0, 255, 255)   
+_GRADIENT_END = (138, 43, 226)     
 
 
 def _lerp(a: int, b: int, t: float) -> int:
