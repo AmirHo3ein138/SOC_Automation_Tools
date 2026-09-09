@@ -21,7 +21,7 @@ from detector import IOCType
 from providers import BaseProvider
 from utils import ProviderResult, Verdict
 
-logger = logging.getLogger("ioc_checker")
+logger = logging.getLogger("ThreatLens")
 
 API_URL = "https://api.abuseipdb.com/api/v2/check"
 
