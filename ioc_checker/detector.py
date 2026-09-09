@@ -32,7 +32,6 @@ _MD5_RE = re.compile(r"^[a-fA-F0-9]{32}$")
 _SHA1_RE = re.compile(r"^[a-fA-F0-9]{40}$")
 _SHA256_RE = re.compile(r"^[a-fA-F0-9]{64}$")
 
-# RFC-1035-ish domain matcher: labels separated by dots, valid TLD at the end.
 _DOMAIN_RE = re.compile(
     r"^(?=.{1,253}$)(?!-)[A-Za-z0-9-]{1,63}(?<!-)"
     r"(\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))*\.[A-Za-z]{2,63}$"
