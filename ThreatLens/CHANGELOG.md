@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Restore external `.env` discovery beside PyInstaller executables, independent
+  of the working directory and temporary bundle extraction directory.
+- Preserve explicit `--env-file` selection and process-environment precedence.
+- Cover source/frozen discovery, explicit selection and multi-scan interactive
+  operation with regression tests; update CLI help and both READMEs.
+
 ## 2.1.0 — 2026-09-10
 
 A minor feature release from 2.0.1: the interactive invocation remains supported,

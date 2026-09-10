@@ -1,6 +1,7 @@
 """Runtime configuration loaded explicitly; no import-time filesystem effects."""
 
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -39,7 +40,13 @@ class AppConfig:
 
 
 def load_config(env_file=None, **overrides) -> AppConfig:
-    load_dotenv(Path(env_file) if env_file else Path(__file__).with_name(".env"))
+    if env_file is not None:
+        env_path = Path(env_file).expanduser()
+    else:
+        # Frozen __file__ points inside the bundle, not beside the user's EXE.
+        entry = sys.executable if getattr(sys, "frozen", False) else __file__
+        env_path = Path(entry).resolve().with_name(".env")
+    load_dotenv(env_path)
     org = os.getenv("THREATLENS_ORG_FILE")
     values = dict(
         keys={name: os.getenv(env, "").strip() for name, (_, env) in PROVIDERS.items()},
