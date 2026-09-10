@@ -78,7 +78,7 @@ class ConfigTests(Isolated):
             for frozen in (False, True):
                 with (
                     self.subTest(frozen=frozen),
-                    patch.dict(os.environ, {}, clear=True),
+                    patch.dict(os.environ, {"THREATLENS_DATA_DIR": str(self.path)}, clear=True),
                     patch("sys.frozen", frozen, create=True),
                     patch("sys.executable", str(app / "ThreatLens.exe")),
                     patch("config.__file__", str((self.path if frozen else app) / "config.py")),
@@ -94,7 +94,7 @@ class ConfigTests(Isolated):
         for path, expected in ((explicit, "selected"), (self.path / "missing.env", "")):
             with (
                 self.subTest(path=path),
-                patch.dict(os.environ, {}, clear=True),
+                patch.dict(os.environ, {"THREATLENS_DATA_DIR": str(self.path)}, clear=True),
                 patch("sys.frozen", True, create=True),
                 patch("sys.executable", str(self.path / "ThreatLens.exe")),
             ):
@@ -103,7 +103,11 @@ class ConfigTests(Isolated):
     def test_existing_environment_keeps_precedence(self):
         env = self.path / ".env"
         env.write_text("VT_API_KEY=from-file\n", encoding="utf-8")
-        with patch.dict(os.environ, {"VT_API_KEY": "from-process"}, clear=True):
+        with patch.dict(
+            os.environ,
+            {"VT_API_KEY": "from-process", "THREATLENS_DATA_DIR": str(self.path)},
+            clear=True,
+        ):
             self.assertEqual(load_config(env).keys["virustotal"], "from-process")
 
 
@@ -643,7 +647,7 @@ class CLITests(Isolated):
         (self.path / ".env").write_text("VT_API_KEY=beside-exe\n", encoding="utf-8")
         output = io.StringIO()
         with (
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"THREATLENS_DATA_DIR": str(self.path)}, clear=True),
             patch("sys.frozen", True, create=True),
             patch("sys.executable", str(self.path / "ThreatLens.exe")),
             patch("sys.stdin.isatty", return_value=True),
