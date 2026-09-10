@@ -50,7 +50,7 @@ def parser():
         "--no-enrichment", action="store_true", help="Skip external cloud/ISP/WHOIS context"
     )
     p.add_argument(
-        "--timeout", type=float, default=12, help="Per-request connect/read timeout, 1-60 seconds"
+        "--timeout", type=float, default=4, help="Per-request connect/read timeout, 1-60 seconds"
     )
     p.add_argument("--cache-ttl", type=int, default=3600, help="Positive TI cache TTL in seconds")
     p.add_argument(
