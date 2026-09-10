@@ -640,6 +640,43 @@ class TransportTests(Isolated):
                     Transport().request("GET", "https://example.com")
 
 
+class UITests(Isolated):
+    def test_classic_panels_and_literal_warnings_at_terminal_widths(self):
+        import ui
+        from rich.console import Console
+
+        report = Scanner(self.config(offline=True)).scan("8.8.8.8")
+        report.context.warnings.append("[red]literal notice[/red]")
+        for width in (80, 120):
+            sink = io.StringIO()
+            with patch.object(ui, "console", Console(file=sink, width=width)):
+                ui.print_banner()
+                ui.display(report)
+            output = sink.getvalue()
+            for label in (
+                "THREAT INTELLIGENCE AGGREGATOR CLI",
+                "Provided by Amirhossein Mousavi",
+                "IOC INFORMATION",
+                "IP CONTEXT",
+                "SCAN RESULTS",
+                "OVERALL ASSESSMENT",
+                "API WARNINGS",
+                "Execution Time:",
+                "[red]literal notice[/red]",
+                "N/A",
+            ):
+                self.assertIn(label, output)
+            self.assertNotIn("CLEAN", output)
+            self.assertNotIn("\x1b[2J", output)
+            self.assertTrue(all(len(line) <= width for line in output.splitlines()))
+
+    def test_native_signal_does_not_turn_abuse_reports_into_confidence(self):
+        import ui
+
+        result = R("AbuseIPDB", V.SUSPICIOUS, "201 reports", {"abuse_score": 0, "reports": 201})
+        self.assertEqual(ui.confidence(result), "0% abuse")
+
+
 class CLITests(Isolated):
     def test_interactive_multiple_scans_with_adjacent_frozen_env(self):
         import cli

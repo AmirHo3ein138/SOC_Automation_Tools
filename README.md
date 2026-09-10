@@ -32,6 +32,10 @@ selects a different file and takes priority over this default. Running the EXE
 without scan arguments opens the interactive `IOC>` prompt.
 Run a lookup or start the interactive prompt:
 
+The original Stealth UI includes its gradient banner, rounded information panels,
+colored results and large assessment display. Scan history stays in the terminal.
+Artwork is bundled in Python; the EXE needs no separate font files.
+
 ```bash
 python ThreatLens/ThreatLens.py 8.8.8.8
 python ThreatLens/ThreatLens.py
