@@ -1,25 +1,14 @@
-"""
-detector.py
-
-IOC Type Detection Engine
--------------------------
-Author: Amirhossein Mousavi
-
-Description:
-Responsible for analyzing raw user input and accurately classifying it into a supported 
-Indicator of Compromise (IOC) type: IPv4, Domain, URL, MD5, SHA1, or SHA256. It utilizes 
-strict regular expressions and the built-in ipaddress module to ensure only valid data 
-is passed to the upstream APIs.
-"""
-
-from __future__ import annotations
+"""Normalize defanged IOCs without changing case-sensitive URL paths or queries."""
 
 import ipaddress
 import re
 from enum import Enum
+from urllib.parse import urlsplit, urlunsplit
+
 
 class IOCType(str, Enum):
     IPV4 = "IPv4"
+    IPV6 = "IPv6"
     DOMAIN = "Domain"
     URL = "URL"
     MD5 = "MD5"
@@ -28,59 +17,63 @@ class IOCType(str, Enum):
     UNKNOWN = "Unknown"
 
 
-_MD5_RE = re.compile(r"^[a-fA-F0-9]{32}$")
-_SHA1_RE = re.compile(r"^[a-fA-F0-9]{40}$")
-_SHA256_RE = re.compile(r"^[a-fA-F0-9]{64}$")
-
-_DOMAIN_RE = re.compile(
-    r"^(?=.{1,253}$)(?!-)[A-Za-z0-9-]{1,63}(?<!-)"
-    r"(\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))*\.[A-Za-z]{2,63}$"
-)
+HASH_TYPES = {32: IOCType.MD5, 40: IOCType.SHA1, 64: IOCType.SHA256}
 
 
-def _is_ipv4(value: str) -> bool:
+def domain_name(value: str) -> str:
+    name = value.rstrip(".").encode("idna").decode("ascii").lower()
+    if len(name) > 253 or "." not in name:
+        raise ValueError("Expected a fully qualified domain name")
+    labels = name.split(".")
+    if any(not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", x) for x in labels):
+        raise ValueError("Invalid domain label")
+    if labels[-1].isdigit():
+        raise ValueError("Invalid top-level domain")
+    return name
+
+
+def normalize_ioc(raw: str) -> tuple[str, IOCType]:
+    value = raw.strip().replace("[.]", ".").replace("(.)", ".")
+    value = re.sub(r"^hxxps:", "https:", value, flags=re.I)
+    value = re.sub(r"^hxxp:", "http:", value, flags=re.I)
+    value = value.replace("[:]", ":")
+    if not value or any(ord(c) < 32 or ord(c) == 127 for c in value):
+        raise ValueError("Empty input or control characters")
+    if len(value) > 8192:
+        raise ValueError("IOC exceeds 8192 characters")
     try:
-        ipaddress.IPv4Address(value)
-        return True
+        if "%" in value:
+            raise ValueError("Scoped addresses are not supported")
+        ip = ipaddress.ip_address(value)
+        return str(ip), IOCType.IPV4 if ip.version == 4 else IOCType.IPV6
     except ValueError:
-        return False
+        pass
+    if re.fullmatch(r"[a-fA-F0-9]+", value) and len(value) in HASH_TYPES:
+        return value.lower(), HASH_TYPES[len(value)]
+    if "://" in value:
+        parts = urlsplit(value)
+        if parts.scheme.lower() not in {"http", "https", "ftp"} or not parts.hostname:
+            raise ValueError("URL needs a supported scheme and hostname")
+        if any(c.isspace() for c in value) or "\\" in value:
+            raise ValueError("Invalid URL characters")
+        if parts.username is not None or parts.password is not None:
+            raise ValueError("Credential-bearing URLs cannot be sent to external TI services")
+        host = parts.hostname
+        try:
+            ip = ipaddress.ip_address(host)
+            host = f"[{ip}]" if ip.version == 6 else str(ip)
+        except ValueError:
+            host = domain_name(host)
+        port = parts.port  # Also validates invalid/out-of-range ports.
+        netloc = host + (f":{port}" if port is not None else "")
+        return urlunsplit(
+            (parts.scheme.lower(), netloc, parts.path or "/", parts.query, parts.fragment)
+        ), IOCType.URL
+    return domain_name(value), IOCType.DOMAIN
 
 
-def _is_url(value: str) -> bool:
-    return value.lower().startswith(("http://", "https://", "ftp://"))
-
-
-def _is_domain(value: str) -> bool:
-    return bool(_DOMAIN_RE.match(value))
-
-
-def detect_ioc_type(raw_value: str) -> IOCType:
-    """
-    Inspect the given string and classify it as one of the supported
-    IOC types. Order of checks matters: hashes are unambiguous fixed-length
-    hex strings, so they are checked before domain/URL/IP.
-    """
-    value = raw_value.strip()
-
-    if not value:
+def detect_ioc_type(raw: str) -> IOCType:
+    try:
+        return normalize_ioc(raw)[1]
+    except (ValueError, UnicodeError):
         return IOCType.UNKNOWN
-
-    if _is_url(value):
-        return IOCType.URL
-
-    if _is_ipv4(value):
-        return IOCType.IPV4
-
-    if _SHA256_RE.match(value):
-        return IOCType.SHA256
-
-    if _SHA1_RE.match(value):
-        return IOCType.SHA1
-
-    if _MD5_RE.match(value):
-        return IOCType.MD5
-
-    if _is_domain(value):
-        return IOCType.DOMAIN
-
-    return IOCType.UNKNOWN

@@ -1,76 +1,51 @@
-"""
-config.py
-
-Centralized Configuration Loader
---------------------------------
-Author: Amirhossein Mousavi
-
-Description:
-Manages the application's configuration state by securely loading API keys and runtime 
-settings from the environment variables (.env). It defines structured dataclasses for 
-provider settings, enabling easy tracking of which APIs require authentication and 
-managing global variables like request timeouts.
-"""
-
-from __future__ import annotations
+"""Runtime configuration loaded explicitly; no import-time filesystem effects."""
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load environment variables from .env file in the current working directory
-load_dotenv()
-
-VERSION: str = "2.0.1"
-REQUEST_TIMEOUT: int = 15 
-
-
-@dataclass(frozen=True)
-class ProviderConfig:
-    display_name: str
-    env_var: str
-    api_key: str | None
-    requires_key: bool = True
-
-    @property
-    def is_configured(self) -> bool:
-        if not self.requires_key:
-            return True
-        return bool(self.api_key)
+VERSION = "2.1.0"
+REQUEST_TIMEOUT = 12
+PROVIDERS = {
+    "virustotal": ("VirusTotal", "VT_API_KEY"),
+    "otx": ("AlienVault OTX", "OTX_API_KEY"),
+    "threatfox": ("ThreatFox", "THREATFOX_API_KEY"),
+    "abuseipdb": ("AbuseIPDB", "ABUSEIPDB_API_KEY"),
+    "urlhaus": ("URLhaus", "URLHAUS_API_KEY"),
+    "malwarebazaar": ("MalwareBazaar", "MALWAREBAZAAR_API_KEY"),
+    "pulsedive": ("Pulsedive", "PULSEDIVE_API_KEY"),
+}
 
 
 @dataclass(frozen=True)
 class AppConfig:
-    virustotal: ProviderConfig
-    otx: ProviderConfig
-    threatfox: ProviderConfig
-    abuseipdb: ProviderConfig
-    urlhaus: ProviderConfig
-    malwarebazaar: ProviderConfig
-    pulsedive: ProviderConfig
-    whois_api_key: str | None  
+    keys: dict
+    data_dir: Path
+    org_file: Path | None = None
+    timeout: float = REQUEST_TIMEOUT
+    cache_ttl: int = 3600
+    negative_ttl: int = 300
+    context_ttl: int = 86400
+    offline: bool = False
+    no_cache: bool = False
+    enrichment: bool = True
+    whois_api_key: str | None = None
 
-    def all_providers(self) -> list[ProviderConfig]:
-        return [
-            self.virustotal,
-            self.otx,
-            self.threatfox,
-            self.abuseipdb,
-            self.urlhaus,
-            self.malwarebazaar,
-            self.pulsedive,
-        ]
+    @property
+    def secrets(self):
+        return [*self.keys.values(), self.whois_api_key]
 
 
-def load_config() -> AppConfig:
-    return AppConfig(
-        virustotal=ProviderConfig("VirusTotal", "VT_API_KEY", os.getenv("VT_API_KEY") or None),
-        otx=ProviderConfig("AlienVault OTX", "OTX_API_KEY", os.getenv("OTX_API_KEY") or None),
-        threatfox=ProviderConfig("ThreatFox", "THREATFOX_API_KEY", os.getenv("THREATFOX_API_KEY") or None),
-        abuseipdb=ProviderConfig("AbuseIPDB", "ABUSEIPDB_API_KEY", os.getenv("ABUSEIPDB_API_KEY") or None),
-        urlhaus=ProviderConfig("URLhaus", "URLHAUS_API_KEY", os.getenv("URLHAUS_API_KEY") or None, False),
-        malwarebazaar=ProviderConfig("MalwareBazaar", "MALWAREBAZAAR_API_KEY", os.getenv("MALWAREBAZAAR_API_KEY") or None, False),
-        pulsedive=ProviderConfig("Pulsedive", "PULSEDIVE_API_KEY", os.getenv("PULSEDIVE_API_KEY") or None),
-        whois_api_key=os.getenv("WHOIS_API_KEY") or None,
+def load_config(env_file=None, **overrides) -> AppConfig:
+    load_dotenv(Path(env_file) if env_file else Path(__file__).with_name(".env"))
+    org = os.getenv("THREATLENS_ORG_FILE")
+    values = dict(
+        keys={name: os.getenv(env, "").strip() for name, (_, env) in PROVIDERS.items()},
+        data_dir=Path(os.getenv("THREATLENS_DATA_DIR", "~/.threatlens")).expanduser(),
+        org_file=Path(org).expanduser() if org else None,
+        whois_api_key=os.getenv("WHOIS_API_KEY"),
     )
+    values.update({k: v for k, v in overrides.items() if v is not None})
+    return AppConfig(**values)
