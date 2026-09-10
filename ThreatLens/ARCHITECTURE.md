@@ -18,6 +18,7 @@
 | `assessment.py` | Versioned deterministic evidence score, coverage and contextual recommendations. |
 | `reporting.py` | Compact TXT serialization and unique persistent report files. |
 | `ui.py` | Rich rendering of typed results; untrusted content rendered as plain Text. |
+| `ui_art.py` | Pre-rendered original FIGlet banner and verdict artwork, bundled with the EXE. |
 | `security.py` | Diagnostic redaction and recognizable secret URL checks. |
 | `utils.py` | Streaming file hashes and explicit rotating logging setup. |
 

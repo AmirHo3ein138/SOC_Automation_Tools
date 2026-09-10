@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Restore the original Stealth CLI: gradient banner, author links, rounded panels,
+  colored provider table, large assessment, warnings, spinner and timing footer.
+  Preserve scan history and all 2.1 features; bundle artwork without external fonts.
+
 - Restore external `.env` discovery beside PyInstaller executables, independent
   of the working directory and temporary bundle extraction directory.
 - Preserve explicit `--env-file` selection and process-environment precedence.

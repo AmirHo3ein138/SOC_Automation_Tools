@@ -1,5 +1,12 @@
 # ThreatLens 2.1.0
 
+The original Stealth console layout is restored: gradient banner and author links,
+rounded IOC/file/context panels, colored provider rows, large assessment, API
+warnings and execution-time footer. Native provider signals, cache markers,
+coverage and organization policies appear within that layout. Scan history is
+preserved. Artwork is bundled in `ui_art.py`, with compact text on narrow terminals;
+PyInstaller needs no separate FIGlet fonts. JSON output contains no UI decoration.
+
 A scriptable and interactive **IOC evidence collector** for SOC workflows. It
 queries seven TI providers, checks local organization policy before any external
 lookup, adds optional IP/WHOIS context, and produces explainable recommendations.

@@ -3,6 +3,7 @@
 import argparse
 import json
 import sys
+from contextlib import nullcontext
 from pathlib import Path
 
 import ui
@@ -96,13 +97,14 @@ def main(argv=None):
                     is_file = Path(value).expanduser().is_file()
                 except OSError:
                     is_file = False
-            report = scanner.scan(value, file=is_file)
+            with ui.scan_status() if not args.json and ui.console.is_terminal else nullcontext():
+                report = scanner.scan(value, file=is_file)
             # Always save before claiming success. Report failure is visible and nonzero.
             path = save_report(report, report_dir)
             if args.json:
                 print(json.dumps(report.to_dict(), ensure_ascii=False))
             else:
-                ui.display(report)
+                ui.display(report, file_path=value if is_file else None)
             print("Report saved: " + str(path), file=sys.stderr)
             return (
                 2
@@ -112,10 +114,16 @@ def main(argv=None):
                 else 0
             )
         except (OSError, ValueError, UnicodeError) as exc:
-            print("Scan error: " + safe_text(str(exc), config.secrets), file=sys.stderr)
+            message = "Scan error: " + safe_text(str(exc), config.secrets)
+            if args.json:
+                print(message, file=sys.stderr)
+            else:
+                ui.print_error(message)
             return 1
 
     try:
+        if not args.json:
+            ui.print_banner()
         if args.file or args.ioc:
             return run(args.file or args.ioc, bool(args.file))
         if args.input:
@@ -130,12 +138,11 @@ def main(argv=None):
             return 0
         if args.json or not sys.stdin.isatty():
             parser().error("Supply an IOC, --file or --input for non-interactive use")
-        print(
-            f"ThreatLens {VERSION}. Enter IOC or file path; file PATH forces a file. Type exit to quit."
-        )
+        ui.print_ready()
         while True:
             try:
-                value = input("IOC> ").strip()
+                ui.console.print("[bold cyan]IOC> [/bold cyan]", end="")
+                value = input().strip()
             except EOFError:
                 break
             if value.lower() in {"exit", "quit", "q"}:
