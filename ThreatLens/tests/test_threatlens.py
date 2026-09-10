@@ -3,6 +3,7 @@
 import contextlib
 import io
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -14,7 +15,7 @@ from unittest.mock import Mock, patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from assessment import assess
-from config import AppConfig
+from config import AppConfig, load_config
 from detector import IOCType as T
 from detector import detect_ioc_type, normalize_ioc
 from engine import Scanner
@@ -63,6 +64,51 @@ class Isolated(unittest.TestCase):
             encoding="utf-8",
         )
         return Organization(path)
+
+
+class ConfigTests(Isolated):
+    def test_default_env_beside_exe_or_script_independent_of_cwd(self):
+        app = self.path / "app with spaces"
+        app.mkdir()
+        (app / ".env").write_text("VT_API_KEY=beside-app\n", encoding="utf-8")
+        (self.path / ".env").write_text("VT_API_KEY=wrong-cwd\n", encoding="utf-8")
+        previous = Path.cwd()
+        try:
+            os.chdir(self.path)
+            for frozen in (False, True):
+                with (
+                    self.subTest(frozen=frozen),
+                    patch.dict(os.environ, {"THREATLENS_DATA_DIR": str(self.path)}, clear=True),
+                    patch("sys.frozen", frozen, create=True),
+                    patch("sys.executable", str(app / "ThreatLens.exe")),
+                    patch("config.__file__", str((self.path if frozen else app) / "config.py")),
+                ):
+                    self.assertEqual(load_config().keys["virustotal"], "beside-app")
+        finally:
+            os.chdir(previous)
+
+    def test_explicit_env_wins_and_missing_explicit_does_not_fall_back(self):
+        (self.path / ".env").write_text("VT_API_KEY=default\n", encoding="utf-8")
+        explicit = self.path / "selected.env"
+        explicit.write_text("VT_API_KEY=selected\n", encoding="utf-8")
+        for path, expected in ((explicit, "selected"), (self.path / "missing.env", "")):
+            with (
+                self.subTest(path=path),
+                patch.dict(os.environ, {"THREATLENS_DATA_DIR": str(self.path)}, clear=True),
+                patch("sys.frozen", True, create=True),
+                patch("sys.executable", str(self.path / "ThreatLens.exe")),
+            ):
+                self.assertEqual(load_config(path).keys["virustotal"], expected)
+
+    def test_existing_environment_keeps_precedence(self):
+        env = self.path / ".env"
+        env.write_text("VT_API_KEY=from-file\n", encoding="utf-8")
+        with patch.dict(
+            os.environ,
+            {"VT_API_KEY": "from-process", "THREATLENS_DATA_DIR": str(self.path)},
+            clear=True,
+        ):
+            self.assertEqual(load_config(env).keys["virustotal"], "from-process")
 
 
 class DetectionTests(Isolated):
@@ -595,6 +641,30 @@ class TransportTests(Isolated):
 
 
 class CLITests(Isolated):
+    def test_interactive_multiple_scans_with_adjacent_frozen_env(self):
+        import cli
+
+        (self.path / ".env").write_text("VT_API_KEY=beside-exe\n", encoding="utf-8")
+        output = io.StringIO()
+        with (
+            patch.dict(os.environ, {"THREATLENS_DATA_DIR": str(self.path)}, clear=True),
+            patch("sys.frozen", True, create=True),
+            patch("sys.executable", str(self.path / "ThreatLens.exe")),
+            patch("sys.stdin.isatty", return_value=True),
+            patch("builtins.input", side_effect=["127.0.0.1", "169.254.1.1", "exit"]) as prompt,
+            patch("cli.load_config", wraps=load_config) as config_loader,
+            contextlib.redirect_stdout(output),
+            contextlib.redirect_stderr(io.StringIO()),
+        ):
+            code = cli.main(["--offline", "--no-enrichment", "--data-dir", str(self.path)])
+            self.assertEqual(os.environ["VT_API_KEY"], "beside-exe")
+        self.assertEqual(code, 0)
+        self.assertEqual(prompt.call_count, 3)
+        config_loader.assert_called_once()
+        self.assertIn("Enter IOC or file path", output.getvalue())
+        reports = list((self.path / "reports").glob("*.txt"))
+        self.assertEqual(len(reports), 2)
+
     def test_real_cli_offline_json_and_txt(self):
         completed = subprocess.run(
             [

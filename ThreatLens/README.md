@@ -18,9 +18,19 @@ python -m pip install -r ThreatLens/requirements-lock.txt
 
 Copy `.env.example` in this folder to `.env`, then set the keys you have. All seven
 TI adapters require keys. Missing keys produce `SKIPPED`, not an apparently clean
-result. `.env` is loaded explicitly from the application directory, regardless of
-where the command is launched; existing environment variables take precedence.
-Use `--env-file PATH` to select another file. WHOIS is optional.
+result. Configuration file selection is:
+
+1. `--env-file PATH`, when supplied (relative paths use the working directory).
+2. Otherwise, `.env` beside the executable in PyInstaller builds, or beside
+   `ThreatLens.py` when running the Python source, regardless of the working directory.
+
+Only the selected file is loaded; a missing explicit file does not fall back to
+another `.env`. Existing environment variables take precedence over file values.
+WHOIS is optional. A console-enabled EXE can be distributed with just a sibling
+`.env` containing the user's keys; do not embed keys in the executable. Launching
+without an IOC or batch arguments opens the interactive `IOC>` prompt. Keep
+PyInstaller's `--console` option enabled. Organization JSON is optional; cache,
+logs and reports are created automatically under `~/.threatlens` by default.
 
 `requirements.txt` contains direct version bounds. `requirements-lock.txt` records
 the tested exact dependency set. There is no pyfiglet dependency in this release.

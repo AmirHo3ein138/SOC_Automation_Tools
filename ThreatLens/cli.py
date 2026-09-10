@@ -27,7 +27,7 @@ def parser():
     group.add_argument("--input", type=Path, help="UTF-8 file containing one IOC per line")
     p.add_argument("--org-config", type=Path, help="Organization IP/CIDR policy JSON")
     p.add_argument(
-        "--env-file", type=Path, help="Explicit .env file; default: beside ThreatLens.py"
+        "--env-file", type=Path, help="Explicit .env file; default: beside the EXE or ThreatLens.py"
     )
     p.add_argument("--data-dir", type=Path, help="Cache/log directory (default ~/.threatlens)")
     p.add_argument(

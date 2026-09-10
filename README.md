@@ -26,6 +26,10 @@ python -m pip install -r ThreatLens/requirements-lock.txt
 ```
 
 Copy `ThreatLens/.env.example` to `ThreatLens/.env` and fill in your own API keys.
+For a PyInstaller console build, place `.env` beside `ThreatLens.exe` instead;
+it is found there even when launched from another directory. `--env-file PATH`
+selects a different file and takes priority over this default. Running the EXE
+without scan arguments opens the interactive `IOC>` prompt.
 Run a lookup or start the interactive prompt:
 
 ```bash
