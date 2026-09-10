@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+!.env.example
+*.log
+*.sqlite3*
+reports/
+.threatlens/
+organization.json
+.coverage
+.pytest_cache/
+.ruff_cache/

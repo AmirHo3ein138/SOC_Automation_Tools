@@ -1,37 +1,76 @@
 # SOC Automation Tools
 
-## About This Repository
+Practical tools for SOC analysts: collect evidence, reduce repetitive lookups, and
+keep investigation records. The repository currently contains **ThreatLens 2.1.0**,
+a Python CLI for multi-source IOC enrichment.
 
-This repository is a personal collection of tools I've built to solve problems I run into on a daily basis as a SOC Analyst. Each tool starts from a real, recurring need in an operational SOC environment — where a large part of daily work (alert triage, checking Indicators of Compromise, and documenting findings) is still done manually across several disconnected sources, wasting time and increasing the risk of human error.
+| Tool | Purpose | Documentation |
+| --- | --- | --- |
+| ThreatLens | IOC lookups, organization/APN context, network-aware recommendations, TTL caching, compact TXT reports and JSON output | [ThreatLens README](ThreatLens/README.md) |
 
-The goal of this project is to automate parts of these workflows with a focus on **Blue Team Operations**. It's not meant to be a commercial product or a generic framework — it's a set of practical tools that I use in my own work environment, and it will keep growing as new needs come up.
+ThreatLens is an analyst aid. It does not block IPs, upload samples, perform active
+scans of IOC hosts, or establish that an unknown IOC is safe. Its evidence score is
+an explainable heuristic, **not a calibrated probability of maliciousness**.
 
-This repository is fully **Open Source**. Anyone working in a similar role (SOC Analyst, Threat Hunter, Detection Engineer) is welcome to use these tools, adapt them to their own environment, or contribute to their development.
+## Quick start
 
-## Project Philosophy
+Python **3.11 or newer** is required. The CI matrix targets Python 3.11–3.13 on
+Linux and Windows. From this repository's root:
 
-- **Driven by real needs:** every tool starts from an actual problem encountered in a SOC environment, not an abstract idea.
-- **Blue Team focus:** the overall direction is defensive — triage, threat hunting, enrichment, and analysis.
-- **Modular by design:** each tool is developed independently and has its own README.
-- **Simplicity first:** priority is given to CLI tools that work well in terminal-driven SOC environments, without heavy or unnecessary dependencies.
+```bash
+python -m venv .venv
+# Linux/macOS:
+source .venv/bin/activate
+# Windows PowerShell instead: .venv\Scripts\Activate.ps1
+python -m pip install -r ThreatLens/requirements-lock.txt
+```
 
-## Available Tools
+Copy `ThreatLens/.env.example` to `ThreatLens/.env` and fill in your own API keys.
+Run a lookup or start the interactive prompt:
 
-| Tool | Short Description | Docs |
-|---|---|---|
-| ThreatLens | Automated aggregation and enrichment of IOCs from multiple Threat Intelligence sources, with concurrent scanning and risk scoring | [Module docs](./ThreatLens/README.md) |
+```bash
+python ThreatLens/ThreatLens.py 8.8.8.8
+python ThreatLens/ThreatLens.py
+python ThreatLens/ThreatLens.py --help
+```
 
-This table will be updated as new tools are added.
+Reports are automatically saved as individual UTF-8 TXT files under
+`~/.threatlens/reports`. Runtime data and credentials are ignored by Git.
 
-## Repository Structure
+## Repository layout
 
-Each tool lives in its own folder with its internal structure, dependencies (`requirements.txt` or equivalent), and its own dedicated README. This means adding a new tool never requires touching existing ones.
+- `ThreatLens/`: application, provider adapters, configuration examples and tests.
+- `ThreatLens/ARCHITECTURE.md`: module boundaries, scoring formula and policy order.
+- `ThreatLens/CHANGELOG.md`: release behavior changes and migration notes.
+- `.github/workflows/tests.yml`: offline regression suite and CLI checks.
 
-## Installation & Usage
+See the [architecture](ThreatLens/ARCHITECTURE.md) and
+[release notes](ThreatLens/CHANGELOG.md) before integrating output into an
+operational workflow. JSON exit status indicates collection completeness, not
+whether an IOC is malicious.
 
-To use any tool, go into its dedicated folder and follow the installation/usage instructions in that tool's README. Each tool has its own dependencies and configuration (e.g., API keys stored in a `.env` file).
+## Development
 
-## Contributing
+```bash
+python -m pip install -r ThreatLens/requirements-dev.txt
+ruff check ThreatLens
+ruff format --check ThreatLens
+python -m unittest discover -s ThreatLens/tests -v
+```
 
-Since this repository is open source, pull requests, bug reports, and suggestions for improving existing tools or adding new ones are all welcome. Please open an issue to discuss the direction of any major change before submitting a large PR.
+The tests use synthetic API responses and disposable local storage. They cover
+failure states, provider contracts, network policies, scoring, cache expiry,
+file hashing, report persistence and command-line behavior. They do not prove
+live API availability or real-world detection accuracy. Authenticated integration
+checks require your service keys and account permissions.
 
+For new adapters, add a provider class, register it in `providers/manager.py`, add
+its environment key in `config.py`, document supported IOC types, and add contract
+tests. Significant scoring changes also require updating the policy version and
+its explanation.
+
+## License status
+
+Source is publicly available. This repository does not currently include a license
+grant; the owner has not selected a license. No license was inferred or introduced
+as part of the 2.1.0 code changes.

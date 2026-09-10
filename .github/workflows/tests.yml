@@ -1,0 +1,27 @@
+name: ThreatLens tests
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11', '3.12', '3.13']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: |
+            ThreatLens/requirements-lock.txt
+            ThreatLens/requirements-dev.txt
+      - run: python -m pip install -r ThreatLens/requirements-dev.txt
+      - run: ruff check ThreatLens
+      - run: ruff format --check ThreatLens
+      - run: python -m unittest discover -s ThreatLens/tests -v
+      - run: python ThreatLens/ThreatLens.py --version

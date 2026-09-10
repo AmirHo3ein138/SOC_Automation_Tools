@@ -1,126 +1,60 @@
-"""
-utils.py
-
-Shared Utilities & Data Structures
-----------------------------------
-Author: Amirhossein Mousavi
-
-Description:
-Houses shared utility functions and core data models used across the entire project. 
-Key features include a memory-efficient file hashing mechanism (processing large files 
-in chunks), centralized logging configuration, and the unified 'ProviderResult' data 
-class that normalizes diverse API responses into a single, consistent format.
-"""
-
-from __future__ import annotations
+"""Streaming file digests and explicit rotating application logging."""
 
 import hashlib
 import logging
 import os
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import TypedDict
+import stat
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
-def setup_logging() -> logging.Logger:
-    """Configure and return the application-wide logger."""
-    logger = logging.getLogger("ioc_checker")
+from models import ProviderResult, Verdict  # Compatibility imports for integrations.
+
+__all__ = ["ProviderResult", "Verdict", "calculate_file_hashes", "setup_logging"]
+
+
+def setup_logging(directory: Path):
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    logger = logging.getLogger("threatlens")
+    target = str((directory / "threatlens.log").resolve())
+    for existing in list(logger.handlers):
+        if getattr(existing, "baseFilename", None) != target:
+            existing.close()
+            logger.removeHandler(existing)
     if not logger.handlers:
-        handler = logging.FileHandler("ioc_checker.log")
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        handler = RotatingFileHandler(
+            directory / "threatlens.log", maxBytes=1_000_000, backupCount=3, encoding="utf-8"
         )
-        handler.setFormatter(formatter)
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+        (directory / "threatlens.log").chmod(0o600)
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)
+        logger.propagate = False
     return logger
 
 
-class Verdict(str, Enum):
-    """Normalized verdict returned by every provider."""
+def calculate_file_hashes(path: str) -> dict:
+    """Single pass, 64-KiB chunks; MD5/SHA1 identify samples, SHA256 is queried.
 
-    MALICIOUS = "MALICIOUS"
-    SUSPICIOUS = "SUSPICIOUS"
-    CLEAN = "CLEAN"
-    FOUND = "FOUND"       
-    NOT_FOUND = "NOT FOUND"
-    ERROR = "ERROR"
-    UNSUPPORTED = "UNSUPPORTED"  
-
-
-@dataclass
-class ProviderResult:
+    Non-regular files are rejected. Metadata changes during reading invalidate the
+    result; for forensic consistency scan a stable copy/snapshot of the sample.
     """
-    Unified result format returned by every provider module.
-    The main application only ever interacts with this shape, never with
-    a provider's raw JSON response.
-    """
-
-    provider: str
-    verdict: Verdict
-    details: str
-    risk_contribution: int = 0
-    raw: dict = field(default_factory=dict)
-
-
-# Number of bytes read per iteration when hashing a file. A moderate chunk
-# size keeps memory usage flat and constant even for files larger than the
-# available RAM (e.g. multi-gigabyte samples).
-_HASH_CHUNK_SIZE: int = 8192
-
-
-class FileHashes(TypedDict):
-    """Return shape of :func:`calculate_file_hashes`."""
-
-    filename: str
-    size: int
-    md5: str
-    sha1: str
-    sha256: str
-
-
-def calculate_file_hashes(path: str) -> FileHashes:
-    """
-    Calculate the MD5, SHA1, and SHA256 digests of a local file.
-
-    The file is read incrementally in fixed-size chunks so that memory
-    usage stays constant regardless of file size. This makes the function
-    safe for very large files, including those larger than 2 GB, without
-    ever loading the whole file into memory.
-
-    Args:
-        path: Path to the local file to hash.
-
-    Returns:
-        A :class:`FileHashes` mapping with the file's basename, size in
-        bytes, and lowercase hex digests for ``md5``, ``sha1`` and
-        ``sha256``.
-
-    Raises:
-        FileNotFoundError: If ``path`` does not exist.
-        IsADirectoryError: If ``path`` refers to a directory.
-        OSError: If the file cannot be read for any other reason.
-    """
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"File not found: {path}")
-    if os.path.isdir(path):
-        raise IsADirectoryError(f"Path is a directory, not a file: {path}")
-
-    md5 = hashlib.md5()
-    sha1 = hashlib.sha1()
-    sha256 = hashlib.sha256()
-
-    with open(path, "rb") as handle:
-        # Using an iterator with a sentinel keeps peak memory bounded by
-        # _HASH_CHUNK_SIZE, so 2 GB+ files hash without exhausting RAM.
-        for chunk in iter(lambda: handle.read(_HASH_CHUNK_SIZE), b""):
-            md5.update(chunk)
-            sha1.update(chunk)
-            sha256.update(chunk)
-
-    return FileHashes(
-        filename=os.path.basename(path),
-        size=os.path.getsize(path),
-        md5=md5.hexdigest(),
-        sha1=sha1.hexdigest(),
-        sha256=sha256.hexdigest(),
-    )
+    target = Path(path).expanduser()
+    if not target.is_file():
+        raise ValueError("Expected a readable regular file")
+    digests = {x: hashlib.new(x, usedforsecurity=False) for x in ("md5", "sha1", "sha256")}
+    with target.open("rb") as handle:
+        before = os.fstat(handle.fileno())
+        if not stat.S_ISREG(before.st_mode):
+            raise ValueError("Expected a regular file")
+        size = 0
+        for chunk in iter(lambda: handle.read(65536), b""):
+            size += len(chunk)
+            for digest in digests.values():
+                digest.update(chunk)
+        after = os.fstat(handle.fileno())
+    if (before.st_size, before.st_mtime_ns) != (
+        after.st_size,
+        after.st_mtime_ns,
+    ) or size != after.st_size:
+        raise ValueError("File changed while hashing; scan a stable copy")
+    return {"filename": target.name, "size": size, **{k: v.hexdigest() for k, v in digests.items()}}
