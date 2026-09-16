@@ -1,6 +1,37 @@
 # Changelog
 
-## Unreleased
+## 2.2.0 — 2026-09-16
+
+### Analyst workflow
+
+- Red panels with blinking titles for existing Iranian ISP/ASN and ArvanCloud
+  classifications; detection, scoring and blocking recommendations are unchanged.
+- Shared startup/interactive argument parser: help/version and errors stay inside
+  the REPL; one-shot scan switches and persistent session-only settings.
+- Preserve Windows paths, existing interactive styling, and source rate-limit state.
+- Keep the owner's 2-second CLI timeout; switching .env no longer inherits file keys.
+
+### Daily journals and API reuse
+
+- Reports default beside the EXE/script. Four daily TXT categories: IP, HASH,
+  DOMAIN and URL; local system date is evaluated at each scan start.
+- Store readable sections plus validated checksummed JSON records. Complete same-day
+  reports are reused without API calls or duplicate entries, with visible provenance.
+- Retry incomplete reports. Add --refresh to bypass report/provider/context caches.
+- Date-scoped TI cache prevents previous-day hits. Retain existing context/feed TTLs.
+- File locks protect concurrent appends. Organization/configuration fingerprints
+  prevent reuse after relevant policy changes. Recompute file hashes before reuse.
+
+### Migration and validation
+
+- Existing reports/cache are retained; old unique reports are not imported.
+- --report-dir overrides the new destination; cache/log paths remain unchanged.
+- New JSON fields: report_day, reuse_key, reused. --clear-cache retains TXT journals.
+- Regression coverage includes day rollover, restart reuse, failed-source retries,
+  refresh, concurrent writes, policy changes, Windows paths and visual alerts.
+- Actual Windows EXE and authenticated live-provider validation remain separate.
+
+### Previously unreleased compatibility fixes
 
 - Restore the original Stealth CLI: gradient banner, author links, rounded panels,
   colored provider table, large assessment, warnings, spinner and timing footer.
