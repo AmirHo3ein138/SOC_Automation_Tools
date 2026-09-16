@@ -125,6 +125,33 @@ def confidence(result):
 
 
 def print_context(context):
+    if "ArvanCloud" in context.infrastructure:
+        console.print(Panel(
+            literal(
+                "This IP belongs to ArvanCloud, an Iranian CDN / cloud provider.\n"
+                "Shared infrastructure: do not block this IP. Investigate the specific "
+                "host, domain or URL and review service impact.\n"
+                f"IP: {context.address or 'Unknown'} | ISP: {context.isp or 'Unknown'} | "
+                f"ASN: {context.asn or 'Unknown'}",
+                "bold red",
+            ),
+            title=Text("ATTENTION: IRANIAN CDN — ARVANCLOUD", style="bold red blink"),
+            border_style="bold red", box=box.ROUNDED, padding=(1, 2),
+        ))
+    if context.country_code == "IR":
+        console.print(Panel(
+            literal(
+                "This IP is identified as Iranian network infrastructure.\n"
+                f"IP: {context.address or 'Unknown'} | Country: Iran (IR)\n"
+                f"ISP / Operator: {context.isp or 'Unknown — provider information unavailable'}\n"
+                f"ASN: {context.asn or 'Unknown'}\n"
+                "Consider domestic connectivity and shared-service impact when reviewing "
+                "this IP. Iranian ownership alone does not establish safety or maliciousness.",
+                "bold red",
+            ),
+            title=Text("ATTENTION: IRANIAN ISP / NETWORK", style="bold red blink"),
+            border_style="bold red", box=box.ROUNDED, padding=(1, 2),
+        ))
     if context.organization:
         panel(grid(context.organization.items()), "ORGANIZATION / APN POLICY", "dark_orange")
     if context.address:
