@@ -87,6 +87,10 @@ def print_banner():
 
 
 def print_ready():
+    console.print("[dim]Use -h / --help here. Example: 8.8.8.8 --refresh --timeout 5[/dim]")
+    console.print(
+        "[dim]Options alone update session defaults; options with an IOC apply once.[/dim]"
+    )
     console.print("[bold green]Ready.[/bold green] Enter IOC or file path.")
     console.print("[dim]IPv4 / IPv6, Domain, URL, MD5, SHA1, SHA256, or file PATH.[/dim]")
     console.print(
@@ -125,6 +129,41 @@ def confidence(result):
 
 
 def print_context(context):
+    if "ArvanCloud" in context.infrastructure:
+        console.print(
+            Panel(
+                literal(
+                    "This IP belongs to ArvanCloud, an Iranian CDN / cloud provider.\n"
+                    "Shared infrastructure: do not block this IP. Investigate the specific "
+                    "host, domain or URL and review service impact.\n"
+                    f"IP: {context.address or 'Unknown'} | ISP: {context.isp or 'Unknown'} | "
+                    f"ASN: {context.asn or 'Unknown'}",
+                    "bold red",
+                ),
+                title=Text("ATTENTION: IRANIAN CDN — ARVANCLOUD", style="bold red blink"),
+                border_style="bold red",
+                box=box.ROUNDED,
+                padding=(1, 2),
+            )
+        )
+    if context.country_code == "IR":
+        console.print(
+            Panel(
+                literal(
+                    "This IP is identified as Iranian network infrastructure.\n"
+                    f"IP: {context.address or 'Unknown'} | Country: Iran (IR)\n"
+                    f"ISP / Operator: {context.isp or 'Unknown — provider information unavailable'}\n"
+                    f"ASN: {context.asn or 'Unknown'}\n"
+                    "Consider domestic connectivity and shared-service impact when reviewing "
+                    "this IP. Iranian ownership alone does not establish safety or maliciousness.",
+                    "bold red",
+                ),
+                title=Text("ATTENTION: IRANIAN ISP / NETWORK", style="bold red blink"),
+                border_style="bold red",
+                box=box.ROUNDED,
+                padding=(1, 2),
+            )
+        )
     if context.organization:
         panel(grid(context.organization.items()), "ORGANIZATION / APN POLICY", "dark_orange")
     if context.address:
@@ -165,6 +204,15 @@ def print_error(message):
 
 
 def display(report, file_path=None):
+    if report.reused:
+        panel(
+            literal(
+                f"Saved report from today — no API request made. Original scan: {report.created_at}\n"
+                "Use --refresh with this IOC to request a new assessment.",
+                "bold cyan",
+            ),
+            "TODAY'S SAVED REPORT",
+        )
     if report.file_info:
         rows = [("Filename", report.file_info["filename"])]
         if file_path is not None:

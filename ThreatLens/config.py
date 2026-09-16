@@ -5,9 +5,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 REQUEST_TIMEOUT = 12
 PROVIDERS = {
     "virustotal": ("VirusTotal", "VT_API_KEY"),
@@ -39,20 +39,25 @@ class AppConfig:
         return [*self.keys.values(), self.whois_api_key]
 
 
+def application_dir() -> Path:
+    entry = sys.executable if getattr(sys, "frozen", False) else __file__
+    return Path(entry).resolve().parent
+
+
 def load_config(env_file=None, **overrides) -> AppConfig:
     if env_file is not None:
         env_path = Path(env_file).expanduser()
     else:
         # Frozen __file__ points inside the bundle, not beside the user's EXE.
-        entry = sys.executable if getattr(sys, "frozen", False) else __file__
-        env_path = Path(entry).resolve().with_name(".env")
-    load_dotenv(env_path)
-    org = os.getenv("THREATLENS_ORG_FILE")
+        env_path = application_dir() / ".env"
+    # Keep file values local so switching --env-file never inherits old keys.
+    source = {**dotenv_values(env_path), **os.environ}
+    org = source.get("THREATLENS_ORG_FILE")
     values = dict(
-        keys={name: os.getenv(env, "").strip() for name, (_, env) in PROVIDERS.items()},
-        data_dir=Path(os.getenv("THREATLENS_DATA_DIR", "~/.threatlens")).expanduser(),
+        keys={name: (source.get(env) or "").strip() for name, (_, env) in PROVIDERS.items()},
+        data_dir=Path((source.get("THREATLENS_DATA_DIR") or "~/.threatlens")).expanduser(),
         org_file=Path(org).expanduser() if org else None,
-        whois_api_key=os.getenv("WHOIS_API_KEY"),
+        whois_api_key=source.get("WHOIS_API_KEY"),
     )
     values.update({k: v for k, v in overrides.items() if v is not None})
     return AppConfig(**values)

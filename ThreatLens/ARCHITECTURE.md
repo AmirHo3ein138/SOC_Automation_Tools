@@ -5,7 +5,7 @@
 | Module | Responsibility |
 | --- | --- |
 | `ThreatLens.py` | Thin executable entry point. |
-| `cli.py` | Arguments, REPL, batch input, exit status and report destination. |
+| `cli.py` | Shared argument parser, REPL session defaults, batch input, transport reuse and report destination. |
 | `detector.py` | Defanging, IPv4/IPv6/domain/URL/hash validation and normalization. |
 | `models.py` | Serializable provider results, network context, assessment and scan report. |
 | `organization.py` | Strict local policy validation and longest-prefix IP/CIDR matching. |
@@ -16,7 +16,7 @@
 | `storage.py` | Transactional TTL cache with per-operation SQLite connections. |
 | `engine.py` | Local checks, concurrent collection, cache coordination and assessment invocation. |
 | `assessment.py` | Versioned deterministic evidence score, coverage and contextual recommendations. |
-| `reporting.py` | Compact TXT serialization and unique persistent report files. |
+| `reporting.py` | Categorized daily TXT journals, locked append, checksum validation and same-day lookup. |
 | `ui.py` | Rich rendering of typed results; untrusted content rendered as plain Text. |
 | `ui_art.py` | Pre-rendered original FIGlet banner and verdict artwork, bundled with the EXE. |
 | `security.py` | Diagnostic redaction and recognizable secret URL checks. |
@@ -33,13 +33,19 @@ No plugin auto-discovery, database service, daemon or web API is required.
 2. If a local file was selected, compute its digests and use SHA256 as the IOC.
 3. Normalize the IOC. For IP/literal-IP URLs, match the organization rule first,
    classify special network ranges, then determine whether external data is allowed.
-4. Start eligible provider collection and optional context collection concurrently.
+4. Check today's categorized journal after input/local-policy validation. Match
+   normalized identity plus a fingerprint of app version, organization rules,
+   configured source presence and enrichment mode. Reuse only a complete latest
+   matching record, unless refresh/no-cache was requested. File bytes are always
+   hashed before matching. A hit preserves the original assessment/timestamp.
+5. On a miss, start eligible provider collection and optional context collection concurrently.
    Each provider checks fresh cache before requesting; skipped local policy is
    checked before either cache or network.
-5. Wait for results in deterministic registry order. Provider/context errors are
+6. Wait for results in deterministic registry order. Provider/context errors are
    isolated. Enrichment failures cannot suppress successful TI evidence.
-6. Apply ArvanCloud/organization/domestic context policy, then assess the evidence.
-7. Save one unique TXT report, then emit terminal or JSON output.
+7. Apply ArvanCloud/organization/domestic context policy, then assess the evidence.
+8. Append a daily report section and structured record under a file lock, then
+   emit terminal or JSON output. Reused reports are displayed without another append.
 
 The core `Scanner.scan()` has no Rich dependency. Only the CLI imports the UI.
 Requests go to known TI/context providers, never to the IOC itself. Hostnames are
@@ -124,7 +130,15 @@ metadata overrides external context when provided.
 
 ## Cache and failure semantics
 
-Provider cache namespaces are versioned independently of the app version. Keys
+Provider cache namespaces include a schema version and the scan-start local date.
+Previous-day TI cannot satisfy a new-day query even if its TTL has not expired.
+The separate daily report lookup deliberately reuses complete results until local
+midnight, preserving the original score/time. Incomplete results are retried.
+`--refresh` bypasses both reuse layers, including enrichment/feed caches.
+Checksummed JSON records embedded in readable TXT restore ScanReport objects;
+checksums are corruption detection, not authentication. FileLock protects append
+integrity, not cross-process query deduplication. `.txt.lock` files may remain.
+ Keys
 contain a SHA256 digest of normalized IOC identity plus provider namespace; values
 hold sanitized, normalized results, not raw API payloads or credentials. Reports
 still contain plaintext IOCs, so hashed cache keys are not encryption or anonymization.
@@ -143,7 +157,7 @@ Transport uses HTTPS, does not follow redirects, rejects responses above 10 MB,
 and limits connect/read and streaming duration. There is at most one retry for
 network failure or 5xx. A 429 triggers a bounded Retry-After cooldown rather than a
 long blocking sleep. These are bounded individual operations, not a hard wall-clock
-scan SLA. VT's 15-second spacing is local to one Scanner; concurrent processes need
+scan SLA. VT's 15-second spacing persists across commands within a CLI session; concurrent processes need
 an external quota coordinator if strict account-wide control is required.
 
 ## Security and operational limits
@@ -162,3 +176,18 @@ an external quota coordinator if strict account-wide control is required.
   network updates; dependency updates refresh that snapshot.
 - No legal license was selected by the implementation; repository license status
   is stated explicitly in the root README.
+
+## Interactive settings and storage paths (2.2)
+
+One argument parser serves startup and each REPL line. A command copies session
+settings; arguments with an IOC/file/batch are one-shot. Valid options alone become
+session defaults. Help/version/usage errors are caught without terminating the
+loop. Windows backslashes survive tokenization; no shell is invoked. Source
+transports are retained per provider/key so command parsing cannot reset quotas.
+`.env` values are local to each load, with actual process variables taking priority.
+
+`application_dir()` selects the frozen executable directory or source-module
+folder. Reports default there; cache/log paths keep the existing user-data default.
+Daily journals use system-local scan-start dates; UTC timestamps inside each report
+retain exact event times. A changed policy/configuration fingerprint prevents
+reusing outdated recommendations. Old unique report files are not migrated/deleted.

@@ -1,4 +1,4 @@
-# ThreatLens 2.1.0
+# ThreatLens 2.2.0
 
 The original Stealth console layout is restored: gradient banner and author links,
 rounded IOC/file/context panels, colored provider rows, large assessment, API
@@ -31,13 +31,14 @@ result. Configuration file selection is:
 2. Otherwise, `.env` beside the executable in PyInstaller builds, or beside
    `ThreatLens.py` when running the Python source, regardless of the working directory.
 
-Only the selected file is loaded; a missing explicit file does not fall back to
+File values are not injected into the process environment, so changing `--env-file`
+inside a session does not inherit the previous file's keys. Only the selected file is loaded; a missing explicit file does not fall back to
 another `.env`. Existing environment variables take precedence over file values.
 WHOIS is optional. A console-enabled EXE can be distributed with just a sibling
 `.env` containing the user's keys; do not embed keys in the executable. Launching
 without an IOC or batch arguments opens the interactive `IOC>` prompt. Keep
 PyInstaller's `--console` option enabled. Organization JSON is optional; cache,
-logs and reports are created automatically under `~/.threatlens` by default.
+logs are created under `~/.threatlens`; daily reports go beside the EXE or script.
 
 `requirements.txt` contains direct version bounds. `requirements-lock.txt` records
 the tested exact dependency set. There is no pyfiglet dependency in this release.
@@ -84,6 +85,33 @@ Exit codes: **0** = completed collection (even if high risk), **2** = incomplete
 unknown collection, or command usage error, **1** = invalid input/configuration or
 report failure, **130** = interrupted. Interactive mode returns 0 when closed;
 each scan displays its own completeness. No exit code means “safe”.
+
+### Switches inside the interactive prompt
+
+```text
+IOC> --help
+IOC> --timeout 5
+IOC> 8.8.8.8 --timeout 7
+IOC> 1.1.1.1
+IOC> 8.8.8.8 --refresh
+IOC> --file "C:\Samples\sample with spaces.exe"
+IOC> --report-dir "C:\SOC\Reports"
+IOC> --env-file "C:\SOC\another.env"
+```
+
+Options alone update session defaults after validation. Options with an IOC,
+`--file` or `--input` apply to that command only: the example above scans 8.8.8.8
+with timeout 7, then 1.1.1.1 with the session timeout 5. `--help`, `-h`, `--version`
+and invalid arguments return to the prompt. `--clear-cache` is an immediate action;
+`--refresh` requires an IOC/file/batch and cannot be combined with `--offline`.
+Use `--no-offline`, `--use-cache`, `--enrichment` and `--text` to undo the respective
+session flags. Existing source transports retain rate-limit state across commands.
+
+Quote paths containing spaces. Backslashes in Windows paths are preserved; this
+parser does not execute shell commands, expand variables or interpret pipelines.
+The legacy `file PATH` shortcut and direct existing paths remain supported.
+For clean machine-readable JSON Lines, invoke with arguments outside the REPL;
+an interactive session also contains prompts/help/status messages.
 
 ### Local files and hashes
 
@@ -209,19 +237,72 @@ is not labelled a live query. The score is **not a measured detection accuracy,
 confidence percentage, or probability**. See the exact formulas and limitations
 in [ARCHITECTURE.md](ARCHITECTURE.md).
 
+## Prominent Iranian network alerts
+
+`ui.py` renders red panels with blinking titles for `country_code == IR` and
+ArvanCloud infrastructure membership. Panels show the known ISP/operator, ASN and
+address. ArvanCloud is identified as an Iranian CDN/cloud company regardless of
+an individual edge IP's geolocation; its existing shared-IP protection wording is
+retained. Iranian ISP ownership alone is not an allowlist. Unknown operator names
+are explicitly shown as unknown. Other Iranian CDNs/operators are not guessed or
+newly detected by this presentation change. Blink depends on terminal support;
+red text and borders remain visible in color-enabled terminals.
+
 ## Caching, records and operational settings
 
 Default runtime directory: `~/.threatlens` (override with `--data-dir` or
 `THREATLENS_DATA_DIR`). It contains:
 
 - `cache.sqlite3`: normalized successful TI and enrichment/feed entries.
-- `reports/*.txt`: one uniquely named compact UTF-8 file per completed scan.
 - `threatlens.log`: rotating diagnostic log (1 MB, three backups).
+
+Reports use a separate default destination: the folder containing `ThreatLens.exe`
+(or `ThreatLens.py` for source execution), independent of the working directory.
+`--report-dir PATH` overrides it. An unwritable destination produces a visible error;
+the application does not silently choose another location.
+
+| Local-day journal | IOC types |
+| --- | --- |
+| `ThreatLens_IP_YYYY-MM-DD.txt` | IPv4 and IPv6 |
+| `ThreatLens_HASH_YYYY-MM-DD.txt` | MD5, SHA1, SHA256 and local-file SHA256 lookups |
+| `ThreatLens_DOMAIN_YYYY-MM-DD.txt` | Domains |
+| `ThreatLens_URL_YYYY-MM-DD.txt` | URLs |
+
+Dates use the system's **local calendar day at scan start**. A long-running session
+rolls over automatically. Each scan appends a readable section plus a versioned
+JSON record; do not edit the structured record. Reuse reads only today's journal,
+compares normalized IOC/type and configuration fingerprint, and selects the latest
+matching valid record. A complete report is reusable for the entire day, even when
+the shorter provider-cache TTL has expired. Its original assessment and timestamp
+are preserved and labeled as saved; `reused: true` is included in JSON. Reuse does
+not append duplicate entries or make API calls. Local file contents are still
+hashed before deciding whether an existing SHA256 report matches.
+
+Reports with any failed/skipped/unsupported source or no successful sources are
+not reusable. A retry can use same-day successful provider cache entries while
+retrying missing results. Changing organization rules, enabled-provider presence,
+enrichment mode or application version invalidates report reuse. The fingerprint
+contains no API key values. Reports from earlier versions are retained but not imported.
+
+`--refresh` bypasses daily reuse and TI/context/feed caches for the requested scan,
+then appends a fresh historical entry. `--offline` can reuse a complete report from
+today or same-day fresh provider cache, but does not request external services.
+`--no-cache` bypasses report reuse and disables SQLite reads/writes while still
+saving new reports. `--clear-cache` clears SQLite only; it does not delete journals.
+Provider cache namespaces include the local date, so yesterday's TI does not
+satisfy today's first lookup. Shared feed/WHOIS/IP context caches retain their TTLs
+unless `--refresh` is used.
+
+Writes use per-file locks (`.txt.lock` sidecars) and flush to disk. This protects
+journal integrity; simultaneous independent processes may still issue duplicate
+API requests before either has saved a result. Checksums detect accidental record
+damage, not intentional edits; local journals are not authenticated TI evidence.
+Corrupt records are skipped. Lock contention and report I/O failures are visible.
 
 Positive TI TTL defaults to **3600 seconds**; no-hit/not-found TTL to **300 seconds**.
 Use `--cache-ttl` and `--negative-ttl` to change them. Errors and missing credentials
-are not cached as TI results. Expired TI is never used as fresh evidence, including
-in offline mode. Feed caches alone may fall back to stale last-known-good ranges.
+are not cached as TI results. Expired provider-cache entries are not reused. Daily complete reports are a
+separate, explicitly labeled historical reuse mechanism until local midnight. Feed caches alone may fall back to stale last-known-good ranges.
 Cache writes use SQLite transactions and independent connections per operation.
 Expired entries older than 30 days are pruned at startup.
 
@@ -246,7 +327,9 @@ written into reports/cache. Rotating diagnostics avoid raw URLs and credentials.
 HTTP uses HTTPS only, bounded connect/read timeouts, at most one retry for
 connection failures/5xx, no redirect following, a response-size limit, and 429
 cooldowns respecting Retry-After up to one day. VT requests are spaced by at least
-15 seconds within one scanner process. Other account quotas are not predicted;
+15 seconds within one interactive session. The CLI timeout remains **2 seconds**
+per connect/read operation (the repository owner's setting); use `--timeout` to
+change it. Retries and rate-limit waits mean this is not a total scan deadline. Other account quotas are not predicted;
 429 cooldowns are per process, not a distributed quota coordinator. Concurrent
 processes can share the cache but do not share provider rate-limit timers.
 Ctrl-C can wait for in-flight bounded requests; this is a threaded CLI, not a

@@ -1,7 +1,7 @@
 # SOC Automation Tools
 
 Practical tools for SOC analysts: collect evidence, reduce repetitive lookups, and
-keep investigation records. The repository currently contains **ThreatLens 2.1.0**,
+keep investigation records. The repository currently contains **ThreatLens 2.2.0**,
 a Python CLI for multi-source IOC enrichment.
 
 | Tool | Purpose | Documentation |
@@ -42,8 +42,20 @@ python ThreatLens/ThreatLens.py
 python ThreatLens/ThreatLens.py --help
 ```
 
-Reports are automatically saved as individual UTF-8 TXT files under
-`~/.threatlens/reports`. Runtime data and credentials are ignored by Git.
+Daily UTF-8 journals are saved **beside the EXE or Python entry script** by default:
+`ThreatLens_IP_YYYY-MM-DD.txt`, `ThreatLens_HASH_YYYY-MM-DD.txt`,
+`ThreatLens_DOMAIN_YYYY-MM-DD.txt` and `ThreatLens_URL_YYYY-MM-DD.txt`.
+Complete reports from today are reused without API calls; `--refresh` forces a new
+lookup. Incomplete reports do not prevent retries. `--report-dir` overrides the
+location. Cache and logs remain under `~/.threatlens`. Runtime data and credentials
+are ignored by Git.
+
+Inside `IOC>`, use `-h` / `--help`, `8.8.8.8 --refresh`, or `--timeout 5` to change
+session defaults. Options attached to an IOC apply only to that scan. Red panels
+with blinking titles highlight already-identified Iranian ISP and ArvanCloud
+context; detection and risk scoring have not changed.
+
+See the [2.2.0 release text](ThreatLens/RELEASE_NOTES_v2.2.0.md) for Windows users.
 
 ## Repository layout
 
