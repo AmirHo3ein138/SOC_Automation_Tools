@@ -222,7 +222,7 @@ class InteractiveTests(Isolated):
             patch("sys.frozen", True, create=True),
             patch("sys.executable", str(self.path / "ThreatLens.exe")),
         ):
-            self.assertEqual(application_dir(), self.path)
+            self.assertEqual(application_dir(), self.path.resolve())
             with (
                 contextlib.redirect_stdout(io.StringIO()),
                 contextlib.redirect_stderr(io.StringIO()),
