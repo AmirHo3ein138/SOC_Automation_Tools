@@ -15,7 +15,7 @@ from unittest.mock import Mock, patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from assessment import assess
-from config import AppConfig, load_config
+from config import VERSION, AppConfig, load_config
 from detector import IOCType as T
 from detector import detect_ioc_type, normalize_ioc
 from engine import Scanner
@@ -573,7 +573,8 @@ class EngineTests(Isolated):
         self.assertIn("[/bold]", sink.getvalue())
         one = save_report(report, self.path / "reports")
         two = save_report(report, self.path / "reports")
-        self.assertNotEqual(one, two)
+        self.assertEqual(one, two)
+        self.assertEqual(one.read_text(encoding="utf-8").count("THREATLENS_RECORD_V1 "), 2)
         self.assertIn("Assessment:", one.read_text(encoding="utf-8"))
         self.assertIn("ACTION 1:", one.read_text(encoding="utf-8"))
 
@@ -694,13 +695,14 @@ class CLITests(Isolated):
             contextlib.redirect_stderr(io.StringIO()),
         ):
             code = cli.main(["--offline", "--no-enrichment", "--data-dir", str(self.path)])
-            self.assertEqual(os.environ["VT_API_KEY"], "beside-exe")
+            self.assertEqual(load_config().keys["virustotal"], "beside-exe")
         self.assertEqual(code, 0)
         self.assertEqual(prompt.call_count, 3)
-        config_loader.assert_called_once()
+        self.assertGreaterEqual(config_loader.call_count, 1)
         self.assertIn("Enter IOC or file path", output.getvalue())
-        reports = list((self.path / "reports").glob("*.txt"))
-        self.assertEqual(len(reports), 2)
+        reports = list(self.path.glob("ThreatLens_IP_*.txt"))
+        self.assertEqual(len(reports), 1)
+        self.assertEqual(reports[0].read_text(encoding="utf-8").count("THREATLENS_RECORD_V1 "), 2)
 
     def test_real_cli_offline_json_and_txt(self):
         completed = subprocess.run(
@@ -713,6 +715,8 @@ class CLITests(Isolated):
                 "--json",
                 "--data-dir",
                 str(self.path),
+                "--report-dir",
+                str(self.path / "reports"),
             ],
             capture_output=True,
             text=True,
@@ -721,7 +725,7 @@ class CLITests(Isolated):
         self.assertEqual(completed.returncode, 2, completed.stderr)
         payload = json.loads(completed.stdout)
         self.assertEqual(payload["assessment"]["verdict"], "UNKNOWN")
-        self.assertEqual(payload["version"], "2.1.0")
+        self.assertEqual(payload["version"], VERSION)
         self.assertEqual(len(list((self.path / "reports").glob("*.txt"))), 1)
 
     def test_real_cli_file_with_spaces(self):
@@ -737,6 +741,8 @@ class CLITests(Isolated):
                 "--json",
                 "--data-dir",
                 str(self.path),
+                "--report-dir",
+                str(self.path / "reports"),
             ],
             capture_output=True,
             text=True,
@@ -928,6 +934,8 @@ class AdditionalRegressionTests(Isolated):
                 "--json",
                 "--data-dir",
                 str(self.path),
+                "--report-dir",
+                str(self.path / "reports"),
             ],
             capture_output=True,
             text=True,
@@ -935,7 +943,7 @@ class AdditionalRegressionTests(Isolated):
         )
         self.assertEqual(completed.returncode, 2, completed.stderr)
         self.assertEqual(len([json.loads(line) for line in completed.stdout.splitlines()]), 2)
-        self.assertEqual(len(list((self.path / "reports").glob("*.txt"))), 2)
+        self.assertEqual(len(list((self.path / "reports").glob("*.txt"))), 1)
 
     def test_report_write_failure_is_visible(self):
         import cli
