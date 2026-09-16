@@ -12,3 +12,10 @@ organization.json
 .coverage
 .pytest_cache/
 .ruff_cache/
+
+# Local daily IOC journals and writer locks (may contain investigation data)
+ThreatLens_*_????-??-??.txt
+ThreatLens_*_????-??-??.txt.lock
+build/
+dist/
+*.spec
